@@ -7,22 +7,341 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+### Abstract
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+### Introduction
 
-```{r cars}
-summary(cars)
+
+### Methods
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+library(plotly)
+library(timetk)
+library(tidyverse)
+library(ggplot2)
+library(broom)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+if (!require("quantmod")) {
+    install.packages("quantmod")
+    library(quantmod)
+}
+```
+
+```{r}
+start <- as.Date("2020-03-21")
+end <- as.Date("2021-03-21")
+```
+
+```{r}
+# 6 growth stocks
+getSymbols("NFLX", src = "yahoo", from = start, to = end)
+getSymbols("PYPL", src = "yahoo", from = start, to = end)
+getSymbols("SHOP", src = "yahoo", from = start, to = end)
+getSymbols("GOOGL", src = "yahoo", from = start, to = end)
+getSymbols("FB", src = "yahoo", from = start, to = end)
+getSymbols("BABA", src = "yahoo", from = start, to = end)
+NFLX <- NFLX[, "NFLX.Close"]
+PYPL <- PYPL[, "PYPL.Close"]
+SHOP <- SHOP[, "SHOP.Close"]
+GOOGL <- GOOGL[, "GOOGL.Close"]
+FB <- FB[, "FB.Close"]
+BABA <- BABA[, "BABA.Close"]
+```
+
+```{r}
+stocks <- cbind(NFLX,PYPL,SHOP,GOOGL,FB,BABA)
+stocks_change = stocks %>% log %>% diff
+head(stocks_change)
+```
+
+```{r}
+#Compute column means and covariance matrix
+mean_change <- colMeans(stocks_change, na.rm=TRUE)
+print(round(mean_change,5))
+```
+
+```{r}
+cov_mat <- cov(stocks_change[-c(1),]) * 252
+print(round(cov_mat,4))
+```
+
+```{r}
+tick <- c('NFLX', 'PYPL', 'SHOP', 'GOOGL', 'FB', 'BABA')
+wts <- runif(n = length(tick))
+print(wts)
+```
+
+```{r}
+print(sum(wts))
+```
+
+```{r}
+wts <- wts/sum(wts)
+print(wts)
+```
+
+```{r}
+sum(wts)
+```
+
+```{r}
+port_returns <- (sum(wts * mean_change) + 1)^252 - 1
+port_returns
+```
+
+```{r}
+port_risk <- sqrt(t(wts) %*% (cov_mat %*% wts))
+print(port_risk)
+```
+
+```{r}
+sharpe_ratio <- port_returns/port_risk
+print(sharpe_ratio)
+```
+
+```{r}
+num_port <- 5000
+```
+
+```{r}
+#Weights of all the randomly generated portfolio
+all_wts <- matrix(nrow = num_port,
+                  ncol = length(tick))
+```
+
+```{r}
+#Returns of all the randomly generated portfolio
+port_returns <- vector('numeric', length = num_port)
+```
+
+```{r}
+#Risk of all the randomly generated portfolio
+port_risk <- vector('numeric', length = num_port)
+```
+
+```{r}
+#Sharpe ratio all the randomly generated portfolio
+sharpe_ratio <- vector('numeric', length = num_port)
+```
+
+```{r}
+for (i in seq_along(port_returns)) {
+  
+  wts <- runif(length(tick))
+  wts <- wts/sum(wts)
+  
+  # Storing weight in the matrix
+  all_wts[i,] <- wts
+  
+  # Portfolio returns
+  
+  port_ret <- sum(wts * mean_change)
+  port_ret <- ((port_ret + 1)^252) - 1
+  
+  # Storing Portfolio Returns values
+  port_returns[i] <- port_ret
+  
+  
+  # Creating and storing portfolio risk
+  port_sd <- sqrt(t(wts) %*% (cov_mat  %*% wts))
+  port_risk[i] <- port_sd
+  
+  # Creating and storing Portfolio Sharpe Ratios
+  # Assuming 0% Risk free rate
+  
+  sr <- port_ret/port_sd
+  sharpe_ratio[i] <- sr
+  
+}
+```
+
+```{r}
+# Storing the values in the table
+portfolio_values <- tibble(Return = port_returns,
+                  Risk = port_risk,
+                  SharpeRatio = sharpe_ratio)
+
+
+# Converting matrix to a tibble and changing column names
+all_wts <- tk_tbl(all_wts)
+```
+
+```{r}
+colnames(all_wts) <- colnames(stocks_change)
+
+# Combing all the values together
+portfolio_values <- tk_tbl(cbind(all_wts, portfolio_values))
+```
+
+```{r}
+head(portfolio_values)
+```
+
+```{r}
+min_var <- portfolio_values[which.min(portfolio_values$Risk),]
+max_sr <- portfolio_values[which.max(portfolio_values$SharpeRatio),]
+```
+
+```{r}
+min_var
+```
+
+```{r}
+max_sr
+```
+
+```{r}
+p <- portfolio_values %>%
+  ggplot(aes(x = Risk, y = Return, color = SharpeRatio)) +
+  geom_point(size=0.5) +
+  theme_classic() +
+  scale_y_continuous(labels = scales::percent) +
+  scale_x_continuous(labels = scales::percent) +
+  labs(x = 'Annualized Risk',
+       y = 'Annualized Returns',
+       title = "Portfolio Optimization & Efficient Frontier") +
+  geom_point(aes(x = Risk,
+                 y = Return), data = min_var, color = 'red') +
+  geom_point(aes(x = Risk,
+                 y = Return), data = max_sr, color = 'red') +
+  annotate('text', x = 0.34, y = 0.50, label = "Minimum variance portfolio") +
+  annotate('text', x = 0.35, y = 1.54, label = "Tangency Portfolio") 
+
+ggplotly(p)
+```
+
+```{r}
+Portfolio_prices <- NFLX*0.2144948 + PYPL*0.01176868 + SHOP*0.03982831 + GOOGL*0.391175 + FB*0.04915577 + BABA*0.2935774
+head(Portfolio_prices)
+```
+
+```{r}
+stocks_series = tidy(Portfolio_prices) %>% 
+  
+  ggplot(aes(x=index,y=value)) + geom_line()
+
+stocks_series
+```
+
+```{r}
+Portfolio_change = Portfolio_prices %>% log %>% diff
+head(Portfolio_change)
+```
+
+```{r}
+mc_rep = 1000 # Number of Monte Carlo Simulations
+training_days = 30 
+```
+
+```{r}
+# This function returns the first differences of a t x q matrix of data
+returns = function(Y){
+  len = nrow(Y)
+  yDif = Y[2:len, ] / Y[1:len-1, ] - 1
+}
+
+# Get the Stock Returns
+stock_Returns = returns(stocks)
+head(stock_Returns)
+```
+
+```{r}
+# Get the Variance Covariance Matrix of Stock Returns
+coVarMat = cov(stocks)
+miu = colMeans(stocks)
+# Extend the vector to a matrix
+Miu = matrix(rep(miu, training_days), nrow = 6)
+```
+
+```{r}
+#Take the generated minimum variance portfolio
+vector1 <- c(0.2144948,0.01176868,0.03982831,0.391175,0.04915577,0.2935774)
+portfolio_Weights <- array(c(vector1),dim = c(1,6))
+portfolio_Weights
+```
+
+```{r}
+# Initializing simulated 30 day portfolio returns
+portfolio_Returns_30_m = matrix(0, training_days, mc_rep)
+
+set.seed(200)
+for (i in 1:mc_rep) {
+  Z = matrix ( rnorm( dim(stock_Returns)[2] * training_days ), ncol = training_days )
+  # Lower Triangular Matrix from our Choleski Factorization
+  L = t( chol(coVarMat) )
+  # Calculate stock returns for each day
+  daily_Returns = Miu + L %*% Z  
+  # Calculate portfolio returns for 30 days
+  portfolio_Returns_30 = cumprod( portfolio_Weights %*% daily_Returns + 1 )
+  # Add it to the monte-carlo matrix
+  portfolio_Returns_30_m[,i] = portfolio_Returns_30;
+}
+```
+
+```{r}
+# Visualising result
+x_axis = rep(1:training_days, mc_rep)
+y_axis = as.vector(portfolio_Returns_30_m-1)
+plot_data = data.frame(x_axis, y_axis)
+ggplot(data = plot_data, aes(x = x_axis, y = y_axis)) + geom_path(col = 'red', size = 0.1) +
+  xlab('Days') + ylab('Portfolio Returns') + 
+  ggtitle('Simulated Portfolio Returns in 30 days')+
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+getSymbols("SPY", src = "yahoo", from = start, to = end)
+SPY <- SPY[, "SPY.Close"]
+```
+
+```{r}
+SPY_Return = returns(SPY)
+head(SPY_Return)
+```
+
+```{r}
+# Get the Variance Covariance Matrix of Stock Returns
+coVarMat2 = cov(SPY)
+miu2 = colMeans(SPY)
+# Extend the vector to a matrix
+Miu2 = matrix(rep(miu2, training_days), nrow = 1)
+```
+
+```{r}
+# Initializing simulated 30 day portfolio returns
+SPY_Returns_30_m = matrix(0, training_days, mc_rep)
+
+set.seed(200)
+for (i in 1:mc_rep) {
+  Z = matrix ( rnorm( dim(SPY_Return)[2] * training_days ), ncol = training_days )
+  # Lower Triangular Matrix from our Choleski Factorization
+  L = t( chol(coVarMat2) )
+  # Calculate stock returns for each day
+  daily_Returns = Miu2 + L %*% Z  
+  # Calculate portfolio returns for 30 days
+  SPY_Returns_30 = cumprod( 1 %*% daily_Returns + 1 )
+  # Add it to the monte-carlo matrix
+  SPY_Returns_30_m[,i] = SPY_Returns_30;
+}
+```
+
+```{r}
+# Visualising result
+x_axis = rep(1:training_days, mc_rep)
+y_axis = as.vector(SPY_Returns_30_m-1)
+plot_data = data.frame(x_axis, y_axis)
+ggplot(data = plot_data, aes(x = x_axis, y = y_axis)) + geom_path(col = 'red', size = 0.1) +
+  xlab('Days') + ylab('SPY Returns') + 
+  ggtitle('Simulated SPY Returns in 30 days')+
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
