@@ -1,24 +1,26 @@
 ---
 title: "Portfolio Optimization"
-output: html_document
+output: html_notebook
 ---
+
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ### Abstract
-
+The project is intended to optimize a portfolio that contains growth stocks, and interpret the optimized portfolio(s) through efficient frontier. It will also predict the future performance of the optimized portfolio and the market index using the Monte Carlo stimulation. By comparing the forecasted returns, we found that the portfolio's return has a the possibility to outperform the market index in the next 30 days. However, the predicted results are somewhat off compare to the real price data. This might because of the special post-pandemic timing, further study may include event study and behavioral finance to improve the model. 
 
 ### Introduction
+The world's economy has performed poorly in the past year due to the pandemic, and lots of industries were affected by it. The year 2020 started strong, then the whole stock market experienced large shock when the pandemic first started in February, and was gradually recovering to the previous level during the summer. The market index S&P 500 has turned down almost 65% in March and finished the year up with 14% from the last year's level. Looking deeper into the growth stocks performance last year, people had high expectations for them because more people and work were moved online. Growth stocks(mainly technology stocks) are also the ones that carried the bear market back to normal, and also outperformed both the market and value stocks. Knowing this, we will construct a portfolio with growth stocks and optimize it based on its past performance. We will also forecast the return of the optimized portfolio to see if it still can outperform the market in the next 30 days. There are some analysts shifted their favor from growth stock to value stock, because they believe people are getting back to normal after vaccine came out, and the growth stock won't be as popular as last year. 
 
 
 ### Methods
+The investment risk can be reduced and return can be maximized by applying portfolio optimization. The measurement indexes used in this process include: standard deviation, log returns, covariance matrix, and sharpe ratio. Standard deviation are used to estimate stocks' risk because the more volatile the stock price is, the more risk is associated with it. If a stock has a large standard deviation, that means the stock's price changes in a wide range and is risky.   The sharpe ratio is calculated as the return divided by risk, assume a zero risk free return here. It represents how much return is receiving for bearing one percent of the risk. Therefore, the higher sharpe ratio, the more effective the investment is. All these measurements will give us an overall insight of the stock prices, and the next step is to predict the future portfolio performance.
 
+To forecast the future performance of the portfolio, we will use Monte Carlo Stimulation. It will take the stocks' past risk and return as reference, to predict the portfolio's return as a whole. 
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
+Next, we will look at more details and go through the methods and codes that are used in this project. 
 
 ```{r}
 library(plotly)
@@ -26,6 +28,7 @@ library(timetk)
 library(tidyverse)
 library(ggplot2)
 library(broom)
+library(dplyr)
 ```
 
 ```{r}
@@ -41,7 +44,7 @@ end <- as.Date("2021-03-21")
 ```
 
 ```{r}
-# 6 growth stocks
+# Portfolio Components: Netflix, Paypal, Shopify, Google, Facebook, Alibaba
 getSymbols("NFLX", src = "yahoo", from = start, to = end)
 getSymbols("PYPL", src = "yahoo", from = start, to = end)
 getSymbols("SHOP", src = "yahoo", from = start, to = end)
@@ -57,7 +60,15 @@ BABA <- BABA[, "BABA.Close"]
 ```
 
 ```{r}
+#Combine all the closed stock prices together
 stocks <- cbind(NFLX,PYPL,SHOP,GOOGL,FB,BABA)
+head(stocks)
+```
+
+The codes above imported six stocks close price data (Netflix, Paypal, Shopify, Google, Facebook, Alibaba) from Yahoo.Finance and combined them all into one dataframe. The data is range from 3/21/2020 - 3/21/2021, and has a one year range in total. 
+
+```{r}
+#Compute the daily log return
 stocks_change = stocks %>% log %>% diff
 head(stocks_change)
 ```
@@ -68,44 +79,49 @@ mean_change <- colMeans(stocks_change, na.rm=TRUE)
 print(round(mean_change,5))
 ```
 
+Then we compute the daily log returns. Log returns are frequently used in Finance. A lognormal distribution should be created when there is a need to calculate continuously compounded returns. The values within the distribution are always positive and future stock price generated from it will always be positive as well.(Because the stock price cannot fall below zero) The first row is NA because it doesn't have any row ahead of it, so the calculation won't generate any result. We also compute the average daily returns here which is the column means of the daily return for each stock.
+
 ```{r}
+#Compute covariance matrix
 cov_mat <- cov(stocks_change[-c(1),]) * 252
 print(round(cov_mat,4))
 ```
 
+Covariance matrix is calculated from the daily stock returns, it gets rid of the first row that contains no value and annualized it.(There are about 252 trading days each year) It can show the degree of correlations of different stocks' annual return. Typically, the correlations among stocks in the portfolio are expected to be low. The more diverse is the stocks, the less risky is the portfolio. When there are unexpected downturns in one stock, it won't affect other stocks in the portfolio by much.
+
 ```{r}
+#Assign random numbers between 0 and 1 to each stocks
+set.seed(1)
 tick <- c('NFLX', 'PYPL', 'SHOP', 'GOOGL', 'FB', 'BABA')
 wts <- runif(n = length(tick))
 print(wts)
 ```
 
 ```{r}
-print(sum(wts))
+#Shift the randomly assigned numbers into weights for different stocks
+wts2 <- wts/sum(wts)
+print(wts2)
 ```
 
 ```{r}
-wts <- wts/sum(wts)
-print(wts)
-```
-
-```{r}
-sum(wts)
-```
-
-```{r}
-port_returns <- (sum(wts * mean_change) + 1)^252 - 1
+#Calculate the annualized portfolio return given the new weights
+port_returns <- (sum(wts2 * mean_change) + 1)^252 - 1
 port_returns
 ```
 
 ```{r}
-port_risk <- sqrt(t(wts) %*% (cov_mat %*% wts))
+#Calculate the portfolio risk by a series of matrix multiplications
+port_risk <- sqrt(t(wts2) %*% (cov_mat %*% wts2))
 print(port_risk)
 ```
 
 ```{r}
+# Calculate the sharpe ratio using the return and risk calculated above
 sharpe_ratio <- port_returns/port_risk
 print(sharpe_ratio)
 ```
+
+The code above asked the system to randomly generate numbers between 0 and 1 to each stocks. Next, we reform these random numbers into weights of the portfolio.(that can sum up to 1) Using the new weights created, we'll calculate the annualized portfolio return by multiplying the weights by average daily returns and minus one(the original investment) in the end. The portfolio risk is calculated by the squre root of transpose of weights * (covariance matrix*weights). The "covariance matrix times weights" gives the average daily stock returns under the different weights, and the square root of the transpose of the weights times the result of it reduce the dimension of the matrix and therefore 
 
 ```{r}
 num_port <- 5000
@@ -232,11 +248,6 @@ stocks_series
 ```
 
 ```{r}
-Portfolio_change = Portfolio_prices %>% log %>% diff
-head(Portfolio_change)
-```
-
-```{r}
 mc_rep = 1000 # Number of Monte Carlo Simulations
 training_days = 30 
 ```
@@ -245,7 +256,7 @@ training_days = 30
 # This function returns the first differences of a t x q matrix of data
 returns = function(Y){
   len = nrow(Y)
-  yDif = Y[2:len, ] / Y[1:len-1, ] - 1
+  yDif = unclass(Y[2:len, ]) / unclass(Y[1:len-1, ]) - 1
 }
 
 # Get the Stock Returns
@@ -255,8 +266,8 @@ head(stock_Returns)
 
 ```{r}
 # Get the Variance Covariance Matrix of Stock Returns
-coVarMat = cov(stocks)
-miu = colMeans(stocks)
+coVarMat = cov(stock_Returns)
+miu = colMeans(stock_Returns)
 # Extend the vector to a matrix
 Miu = matrix(rep(miu, training_days), nrow = 6)
 ```
@@ -299,6 +310,19 @@ ggplot(data = plot_data, aes(x = x_axis, y = y_axis)) + geom_path(col = 'red', s
 ```
 
 ```{r}
+Avg_Portfolio_Returns = mean(portfolio_Returns_30_m[30,]-1)
+SD_Portfolio_Returns = sd(portfolio_Returns_30_m[30,]-1)
+Median_Portfolio_Returns = median(portfolio_Returns_30_m[30,]-1)
+print(c(Avg_Portfolio_Returns,SD_Portfolio_Returns,Median_Portfolio_Returns))
+```
+
+```{r}
+Avg_CI = quantile(portfolio_Returns_30_m[30,]-1, c(0.025, 0.975))
+print(Avg_CI)
+```
+
+
+```{r}
 getSymbols("SPY", src = "yahoo", from = start, to = end)
 SPY <- SPY[, "SPY.Close"]
 ```
@@ -310,8 +334,8 @@ head(SPY_Return)
 
 ```{r}
 # Get the Variance Covariance Matrix of Stock Returns
-coVarMat2 = cov(SPY)
-miu2 = colMeans(SPY)
+coVarMat = cov(SPY_Return)
+miu2 = colMeans(SPY_Return)
 # Extend the vector to a matrix
 Miu2 = matrix(rep(miu2, training_days), nrow = 1)
 ```
@@ -345,3 +369,35 @@ ggplot(data = plot_data, aes(x = x_axis, y = y_axis)) + geom_path(col = 'red', s
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5))
 ```
+
+```{r}
+Avg_SPY_Returns = mean(SPY_Returns_30_m[30,]-1)
+SD_SPY_Returns = sd(SPY_Returns_30_m[30,]-1)
+Median_SPY_Returns = median(SPY_Returns_30_m[30,]-1)
+print(c(Avg_SPY_Returns,SD_SPY_Returns,Median_SPY_Returns))
+```
+
+```{r}
+Avg_CI = quantile(SPY_Returns_30_m[30,]-1, c(0.025, 0.975))
+print(Avg_CI)
+```
+
+
+Reference
+https://www.investopedia.com/articles/investing/102014/lognormal-and-normal-distribution.asp
+
+https://israeldi.github.io/bookdown/_book/monte-carlo-simulation-of-stock-portfolio-in-r-matlab-and-python.html
+
+https://www.forbes.com/advisor/investing/stock-market-year-in-review-2020/
+
+
+
+
+
+
+
+
+
+
+
+
