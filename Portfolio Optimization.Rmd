@@ -9,16 +9,17 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ### Abstract
-The project is intended to optimize a portfolio that contains growth stocks, and interpret the optimized portfolio(s) through efficient frontier. It will also predict the future performance of the optimized portfolio and the market index using the Monte Carlo stimulation. By comparing the forecasted returns, we found that the portfolio's return has a the possibility to outperform the market index in the next 30 days. However, the predicted results are somewhat off compare to the real price data. This might because of the special post-pandemic timing, further study may include event study and behavioral finance to improve the model. 
+The project is intended to optimize a portfolio that contains growth stocks, and interpret the optimized portfolio(s) through efficient frontier. It will also predict the future performance of the optimized portfolio and the market index using the Monte Carlo simulation. By comparing the forecasted returns, we found that the portfolio's return has a the possibility to outperform the market index in the next 30 days. However, the predicted results are somewhat off compare to the real price data. This might because of the special post-pandemic timing, further study may include event study and behavioral finance to improve the model. 
 
 ### Introduction
 The world's economy has performed poorly in the past year due to the pandemic, and lots of industries were affected by it. The year 2020 started strong, then the whole stock market experienced large shock when the pandemic first started in February, and was gradually recovering to the previous level during the summer. The market index S&P 500 has turned down almost 65% in March and finished the year up with 14% from the last year's level. Looking deeper into the growth stocks performance last year, people had high expectations for them because more people and work were moved online. Growth stocks(mainly technology stocks) are also the ones that carried the bear market back to normal, and also outperformed both the market and value stocks. Knowing this, we will construct a portfolio with growth stocks and optimize it based on its past performance. We will also forecast the return of the optimized portfolio to see if it still can outperform the market in the next 30 days. There are some analysts shifted their favor from growth stock to value stock, because they believe people are getting back to normal after vaccine came out, and the growth stock won't be as popular as last year. 
 
 
 ### Methods
-The investment risk can be reduced and return can be maximized by applying portfolio optimization. The measurement indexes used in this process include: standard deviation, log returns, covariance matrix, and sharpe ratio. Standard deviation are used to estimate stocks' risk because the more volatile the stock price is, the more risk is associated with it. If a stock has a large standard deviation, that means the stock's price changes in a wide range and is risky.   The sharpe ratio is calculated as the return divided by risk, assume a zero risk free return here. It represents how much return is receiving for bearing one percent of the risk. Therefore, the higher sharpe ratio, the more effective the investment is. All these measurements will give us an overall insight of the stock prices, and the next step is to predict the future portfolio performance.
 
-To forecast the future performance of the portfolio, we will use Monte Carlo Stimulation. It will take the stocks' past risk and return as reference, to predict the portfolio's return as a whole. 
+The investment risk can be reduced and return can be maximized by applying portfolio optimization. The measurement indexes used in this process include: log returns, covariance matrix, and sharpe ratio. All these measurements will give us an overall insight of the stock prices, and the next step is to predict the future portfolio performance.
+
+To forecast the future performance of the portfolio, we will use Monte Carlo Simulation. It will take the stocks' past risk and return as reference, to predict the portfolio's return as a whole. 
 
 Next, we will look at more details and go through the methods and codes that are used in this project. 
 
@@ -37,6 +38,8 @@ if (!require("quantmod")) {
     library(quantmod)
 }
 ```
+
+#### Portfolio Optimization
 
 ```{r}
 start <- as.Date("2020-03-21")
@@ -121,9 +124,10 @@ sharpe_ratio <- port_returns/port_risk
 print(sharpe_ratio)
 ```
 
-The code above asked the system to randomly generate numbers between 0 and 1 to each stocks. Next, we reform these random numbers into weights of the portfolio.(that can sum up to 1) Using the new weights created, we'll calculate the annualized portfolio return by multiplying the weights by average daily returns and minus one(the original investment) in the end. The portfolio risk is calculated by the squre root of transpose of weights * (covariance matrix*weights). The "covariance matrix times weights" gives the average daily stock returns under the different weights, and the square root of the transpose of the weights times the result of it reduce the dimension of the matrix and therefore 
+The code above asked the system to randomly generate numbers between 0 and 1 to each stocks. Next, we reform these random numbers into weights of the portfolio.(that can sum up to 1) Using the new weights created, we'll calculate the annualized portfolio return by multiplying the weights by average daily returns and minus one(the original investment) in the end. The portfolio risk is calculated by the squre root of transpose of weights * (covariance matrix*weights). The "covariance matrix times weights" gives the average daily stock returns under the different weights, and the square root of the transpose of the weights times the result of it reduce the dimension of the matrix. This will give us an understanding of how stocks return are correlated under the weights assigned and eventually give a number that represents the risk of the portfolio. The sharpe ratio is calculated as the return divided by risk, assume a zero risk free return here. It represents how much return is receiving for bearing one percent of the risk. Therefore, the higher sharpe ratio, the more effective the investment is.
 
 ```{r}
+#Set the number of times of simulation
 num_port <- 5000
 ```
 
@@ -149,6 +153,7 @@ sharpe_ratio <- vector('numeric', length = num_port)
 ```
 
 ```{r}
+#Repeat the last step 5000 times and generate 5000 different weights(portfolios)
 for (i in seq_along(port_returns)) {
   
   wts <- runif(length(tick))
@@ -158,7 +163,6 @@ for (i in seq_along(port_returns)) {
   all_wts[i,] <- wts
   
   # Portfolio returns
-  
   port_ret <- sum(wts * mean_change)
   port_ret <- ((port_ret + 1)^252) - 1
   
@@ -172,12 +176,13 @@ for (i in seq_along(port_returns)) {
   
   # Creating and storing Portfolio Sharpe Ratios
   # Assuming 0% Risk free rate
-  
   sr <- port_ret/port_sd
   sharpe_ratio[i] <- sr
   
 }
 ```
+
+Here, we declared some variables to store the values generated within the process and repeated the last step 5000 times. 
 
 ```{r}
 # Storing the values in the table
@@ -201,17 +206,11 @@ portfolio_values <- tk_tbl(cbind(all_wts, portfolio_values))
 head(portfolio_values)
 ```
 
+Then we put all the outputs in the same dataframe so that it will be ready to analysis.
+
 ```{r}
 min_var <- portfolio_values[which.min(portfolio_values$Risk),]
 max_sr <- portfolio_values[which.max(portfolio_values$SharpeRatio),]
-```
-
-```{r}
-min_var
-```
-
-```{r}
-max_sr
 ```
 
 ```{r}
@@ -234,26 +233,18 @@ p <- portfolio_values %>%
 ggplotly(p)
 ```
 
-```{r}
-Portfolio_prices <- NFLX*0.2144948 + PYPL*0.01176868 + SHOP*0.03982831 + GOOGL*0.391175 + FB*0.04915577 + BABA*0.2935774
-head(Portfolio_prices)
-```
+Here we listed the portfolio with minimum variance(smallest risk) and maximum sharpe ratio(most effective). And we also have all the 5000 generated portfolio plotted on the efficient frontier with the annulized risk on the x-axis and annualized return on the y-axis.
+
+#### Monte Carlo Simulations
 
 ```{r}
-stocks_series = tidy(Portfolio_prices) %>% 
-  
-  ggplot(aes(x=index,y=value)) + geom_line()
-
-stocks_series
-```
-
-```{r}
-mc_rep = 1000 # Number of Monte Carlo Simulations
+# Number of Monte Carlo Simulations and the training days
+mc_rep = 1000
 training_days = 30 
 ```
 
 ```{r}
-# This function returns the first differences of a t x q matrix of data
+# Define a function that calculate the ordinary return of the data
 returns = function(Y){
   len = nrow(Y)
   yDif = unclass(Y[2:len, ]) / unclass(Y[1:len-1, ]) - 1
@@ -279,6 +270,8 @@ portfolio_Weights <- array(c(vector1),dim = c(1,6))
 portfolio_Weights
 ```
 
+The first step in the Monte Carlo Simulation is declare the necessary variables - the number of simulation times and training(forecast) days. We also calculated the daily returns of each stock, and the covariance matrix and column means(average daily return) that are generated from it. We repeated the stocks' average daily return 6 times, so that the matrix will be 6*30 for later calculation. We will take the portfolio that has the minimum variance from the portfolio optimization results above as the forecast portfolio here. 
+
 ```{r}
 # Initializing simulated 30 day portfolio returns
 portfolio_Returns_30_m = matrix(0, training_days, mc_rep)
@@ -296,6 +289,8 @@ for (i in 1:mc_rep) {
   portfolio_Returns_30_m[,i] = portfolio_Returns_30;
 }
 ```
+
+This chunk of code is the Monte Carlo Simulation. We first set the seed so that the result will be constant. The simulation will repeat 1000 times as we declared above, then we will add some noise to the daily returns calculated above. This is because the stock price always have small changes that are unpredictable, so we can add some random number generated from the normal distribution into the stock returns we already have. The 6*30 matrix we created above are used to cooperate with the matrix size of the transpose of the covariance matrix. We add the noise times the covariance matrix to the actual return to mimic the stock price changes. In the last we assign the weights generated to the fixed return and collect the results. 
 
 ```{r}
 # Visualising result
@@ -321,6 +316,9 @@ Avg_CI = quantile(portfolio_Returns_30_m[30,]-1, c(0.025, 0.975))
 print(Avg_CI)
 ```
 
+In the end of the simulation, we visualize the forecasted 30 return in a plot. And we also get some insights from the data, such as average/standard deviation/median portfolio return and the confidence interval of the simulation. 
+
+Next, we'll repeat the same process for SPY and forecast the future market performance.
 
 ```{r}
 getSymbols("SPY", src = "yahoo", from = start, to = end)
@@ -382,13 +380,70 @@ Avg_CI = quantile(SPY_Returns_30_m[30,]-1, c(0.025, 0.975))
 print(Avg_CI)
 ```
 
+#### Compare the result with real data
 
-Reference
-https://www.investopedia.com/articles/investing/102014/lognormal-and-normal-distribution.asp
+```{r}
+#Calculate portfolio 30-day return
+Portfolio_return <- 0.2144948*((508.9-523.11)/523.11) + 0.01176868*((264.89-244.38)/244.38) + 0.03982831*((1142.06-1160)/1160) + 0.391175*((2278.35-2030.69)/2030.69) + 0.04915577*((301.47-293.54)/293.54) + 0.2935774*((229.44-237.12)/237.12)
+Portfolio_return
+```
 
-https://israeldi.github.io/bookdown/_book/monte-carlo-simulation-of-stock-portfolio-in-r-matlab-and-python.html
+```{r}
+#Calculate market(SPY) 30-day return
+Market_return <- ((416.07-392.59)/392.59)
+Market_return
+```
 
-https://www.forbes.com/advisor/investing/stock-market-year-in-review-2020/
+Here we take the real data from Yahoo.Finance, and calculate the real return of the portfolio and the market. 
+
+
+### Discussion
+
+#### Portfolio Optimization
+
+In this section we will discuss the results or the outputs that are generated from the portfolio optimization process. Firstly, the average daily return of the stocks are all range from 0.1% to 0.45%, which are all positive and shows that these stocks are performed well during the last year. The covariance matrix indicates that the highest correlation is 0.1889 between Paypal and Shopify, and the lowest correlation is 0.0587 between Alibaba and Netflix. The correlation range of 0.0587 - 0.1889 is not high and we can say that the portfolio's risk is diversified pretty well. From the first random weight we generated, the resulted annualized return is 1.1, risk is 0.35, and the sharpe ratio is 3.15. This means that the portfolio has been increase its value more than one time within this year, the price volatility is 0.35, and there is 3.15 times of return for bearing 1 time of the risk. This investment result is pretty effective as the sharpe ratio is considered good when it is larger than 1. 
+
+Next, we'll look at our 5000 simulations. The portfolio with the minimum variance is having a annualized return of 0.73, a risk of 0.3, and a sharpe ratio of 2.4. The portfolio with the maximum sharpe ratio is having a return of 1.6, a risk of 0.4, and a sharpe ratio of 3.8. To better understand the outputs of the simulation, we will bring the efficient frontier graph into our discussion. 
+
+```{r}
+p <- portfolio_values %>%
+  ggplot(aes(x = Risk, y = Return, color = SharpeRatio)) +
+  geom_point(size=0.5) +
+  theme_classic() +
+  scale_y_continuous(labels = scales::percent) +
+  scale_x_continuous(labels = scales::percent) +
+  labs(x = 'Annualized Risk',
+       y = 'Annualized Returns',
+       title = "Portfolio Optimization & Efficient Frontier") +
+  geom_point(aes(x = Risk,
+                 y = Return), data = min_var, color = 'red') +
+  geom_point(aes(x = Risk,
+                 y = Return), data = max_sr, color = 'red') +
+  annotate('text', x = 0.34, y = 0.50, label = "Minimum variance portfolio") +
+  annotate('text', x = 0.35, y = 1.54, label = "Tangency Portfolio") 
+
+ggplotly(p)
+```
+
+The efficient frontier graph looks like a horizontal U-shape. And now we can clearly see the position of each portfolio on the graph. The minimum variance portfolio is on the most left, because it is having the smallest risk and is the safest among all the generated portfolios. It is the best choice for the investors who have low risk tolerance and want to minimize the risk. The tangency portfolio is the one with the maximum sharpe ratio, and can generate the most return for bearing 1% of the risk. This is the best portfolio for the investors that can bear risks and want to maximize the efficiency of their investment. However, all the portfolios that are on the top of each risk level are the optimized portfolio, because they are generating the highest return for bearing the same risk. 
+
+#### Monte Carlo Simulation
+
+For the Monte Carlo Simulation, we will assume the investor is risk aversion and use the minimum variance portfolio generated above. The confidence interval of the forecasted portfolio return in the next 30 days is between -13.2% - 30.4%, with an average of 7.02%. And the confidence interval of the forecasted market performance is between -8.9% - 25.4%, with an average of 6.9%. From these indexes, the market is having a narrower range and an similar average than the optimized portfolio. Even though the portfolio has a higher upper bound than the market, it is more volatile and therefore we will go for the less risky one and say that the market will be more efficient and perform better in the next 30 days.
+
+Compare to the return calculated from real stock data, the portfolio is generating 3.41% return while the market is generating 5.98% return. This is somewhat off compare to the average return we forecasted. This might result from the shift of the market sentiment. People are investing back in the industries other than technology since the society is gradually getting back to normal and the trend of investing in technology faded away. The assumption we made in the beginning has become true and the portfolio failed to outperform the market. For the future researches, people can include the behavioral finance and event analysis to make the prediction more accurate. 
+
+
+### Reference
+
+Zucchi, Kristina. Lognormal and Normal Distribution. 13 Dec. 2020, www.investopedia.com/articles/investing/102014/lognormal-and-normal-distribution.asp. 
+
+
+Diego, Israel. “Projects and Coursework /&gt; 2 Monte Carlo Simulation of Stock Portfolio in R, Matlab, and Python, 20 Dec. 2018, israeldi.github.io/bookdown/_book/monte-carlo-simulation-of-stock-portfolio-in-r-matlab-and-python.html. 
+
+
+Jackson, Anna-Louise. “2020 Stock Market in Review: A Year That Defied Expectations.” Forbes, Forbes Magazine, 11 Mar. 2021, www.forbes.com/advisor/investing/stock-market-year-in-review-2020/. 
+
 
 
 
