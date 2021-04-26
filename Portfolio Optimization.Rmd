@@ -9,13 +9,25 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ### Abstract
+
+
 The project is intended to optimize a portfolio that contains growth stocks, and interpret the optimized portfolio(s) through efficient frontier. It will also predict the future performance of the optimized portfolio and the market index using the Monte Carlo simulation. By comparing the forecasted returns, we found that the portfolio's return has a the possibility to outperform the market index in the next 30 days. However, the predicted results are somewhat off compare to the real price data. This might because of the special post-pandemic timing, further study may include event study and behavioral finance to improve the model. 
 
+
+
+
 ### Introduction
+
+
 The world's economy has performed poorly in the past year due to the pandemic, and lots of industries were affected by it. The year 2020 started strong, then the whole stock market experienced large shock when the pandemic first started in February, and was gradually recovering to the previous level during the summer. The market index S&P 500 has turned down almost 65% in March and finished the year up with 14% from the last year's level. Looking deeper into the growth stocks performance last year, people had high expectations for them because more people and work were moved online. Growth stocks(mainly technology stocks) are also the ones that carried the bear market back to normal, and also outperformed both the market and value stocks. Knowing this, we will construct a portfolio with growth stocks and optimize it based on its past performance. We will also forecast the return of the optimized portfolio to see if it still can outperform the market in the next 30 days. There are some analysts shifted their favor from growth stock to value stock, because they believe people are getting back to normal after vaccine came out, and the growth stock won't be as popular as last year. 
+
+The previous researches within this area implemented different methodologies and focus on different topics. There is one research uses the meta-heuristic technique to optimize the portfolio, and the particle swarm optimization(PSO) can build optimal risky portfolio really well. It also uses the sharpe ratio as measurement index, but the PSO framework is highly depend on its parameters. There is also another research that combines the Progressive Hedging Algorithm, Maximum Principle and fixed-point iteration scheme together to solve the discrete time optimal control problem. It formulate the portfolio problem as a stochastic programming problem through the scenario decomposition approach, which can be easily solved as a discrete time optimal control problem. The result of this research can fully explore the the properties of the portfolio problem under different time frames. There are also researches that focus on practical portfolio selection with preferences and so on. In the portfolio management field, there are lots of different topics and methods that the research can be focus on. In this project, we will primarily use the efficient frontier and Monte Carlo simulation to optimize and forecast a given portfolio. 
+
+
 
 
 ### Methods
+
 
 The investment risk can be reduced and return can be maximized by applying portfolio optimization. The measurement indexes used in this process include: log returns, covariance matrix, and sharpe ratio. All these measurements will give us an overall insight of the stock prices, and the next step is to predict the future portfolio performance.
 
@@ -397,13 +409,29 @@ Market_return
 Here we take the real data from Yahoo.Finance, and calculate the real return of the portfolio and the market. 
 
 
+
+
+### Results
+
+
+Firstly, the average daily return of the stocks are all range from 0.1% to 0.45%. The covariance matrix shows that the highest correlation is 0.1889 between Paypal and Shopify, and the lowest correlation is 0.0587 between Alibaba and Netflix. The correlations of all the stocks are range from 0.0587 - 0.1889. From the first random weight we generated, the resulted annualized return is 1.1, risk is 0.35, and the sharpe ratio is 3.15.
+
+Secondly, among all the simulated portfolios, the portfolio with the minimum variance is having a annualized return of 0.73, a risk of 0.3, and a sharpe ratio of 2.4. The portfolio with the maximum sharpe ratio is having a return of 1.6, a risk of 0.4, and a sharpe ratio of 3.8.
+
+The confidence interval of the forecasted portfolio return in the next 30 days is between -13.2% - 30.4%, with an average of 7.02%. And the confidence interval of the forecasted market performance is between -8.9% - 25.4%, with an average of 6.9%. While the real data shows that the portfolio is generating 3.41% return while the market is generating 5.98% return.
+
+
+
+
 ### Discussion
+
 
 #### Portfolio Optimization
 
-In this section we will discuss the results or the outputs that are generated from the portfolio optimization process. Firstly, the average daily return of the stocks are all range from 0.1% to 0.45%, which are all positive and shows that these stocks are performed well during the last year. The covariance matrix indicates that the highest correlation is 0.1889 between Paypal and Shopify, and the lowest correlation is 0.0587 between Alibaba and Netflix. The correlation range of 0.0587 - 0.1889 is not high and we can say that the portfolio's risk is diversified pretty well. From the first random weight we generated, the resulted annualized return is 1.1, risk is 0.35, and the sharpe ratio is 3.15. This means that the portfolio has been increase its value more than one time within this year, the price volatility is 0.35, and there is 3.15 times of return for bearing 1 time of the risk. This investment result is pretty effective as the sharpe ratio is considered good when it is larger than 1. 
 
-Next, we'll look at our 5000 simulations. The portfolio with the minimum variance is having a annualized return of 0.73, a risk of 0.3, and a sharpe ratio of 2.4. The portfolio with the maximum sharpe ratio is having a return of 1.6, a risk of 0.4, and a sharpe ratio of 3.8. To better understand the outputs of the simulation, we will bring the efficient frontier graph into our discussion. 
+In this section we will interpret the results and the outputs that are generated from the portfolio optimization process. In the beginning, the stocks' average daily returns are all positive and shows that these stocks are performed well during the last year. The output of the covariance matrix indicates that the overall correlations are not high. Typically correlations below 0.3 are considered low, and we can say that the portfolio's risk is diversified pretty well in this case. From the first random weight we generated, the portfolio has been increase its value more than one time within the past year, the price volatility is 0.35, and there is 3.15 times of return for bearing 1 time of the risk. This investment result is pretty effective as the sharpe ratio is considered good when it is larger than 1. 
+
+Next, we'll look at our 5000 simulations. To better understand the outputs of the simulation, we will bring the efficient frontier graph into our discussion. 
 
 ```{r}
 p <- portfolio_values %>%
@@ -425,16 +453,27 @@ p <- portfolio_values %>%
 ggplotly(p)
 ```
 
-The efficient frontier graph looks like a horizontal U-shape. And now we can clearly see the position of each portfolio on the graph. The minimum variance portfolio is on the most left, because it is having the smallest risk and is the safest among all the generated portfolios. It is the best choice for the investors who have low risk tolerance and want to minimize the risk. The tangency portfolio is the one with the maximum sharpe ratio, and can generate the most return for bearing 1% of the risk. This is the best portfolio for the investors that can bear risks and want to maximize the efficiency of their investment. However, all the portfolios that are on the top of each risk level are the optimized portfolio, because they are generating the highest return for bearing the same risk. 
+The efficient frontier graph looks like a horizontal U-shape. And now we can clearly see the position of each portfolio on the graph. The minimum variance portfolio is on the most left, because it is having the smallest risk and is the safest among all the generated portfolios. It is the best choice for the investors who have low risk tolerance and want to minimize the risk. The tangency portfolio is the one with the maximum sharpe ratio, and can generate the most return for bearing 1% of the risk. This is the best portfolio for the investors that can bear risks and want to maximize the efficiency of their investment. However, all the portfolios that are on the top of each risk level are the optimized portfolio, because they are generating the highest return for bearing the same risk. They are also the most efficient portfolios and has the highest sharpe ratio among the portfolios sharing the same risk. 
+
 
 #### Monte Carlo Simulation
 
-For the Monte Carlo Simulation, we will assume the investor is risk aversion and use the minimum variance portfolio generated above. The confidence interval of the forecasted portfolio return in the next 30 days is between -13.2% - 30.4%, with an average of 7.02%. And the confidence interval of the forecasted market performance is between -8.9% - 25.4%, with an average of 6.9%. From these indexes, the market is having a narrower range and an similar average than the optimized portfolio. Even though the portfolio has a higher upper bound than the market, it is more volatile and therefore we will go for the less risky one and say that the market will be more efficient and perform better in the next 30 days.
+
+For the Monte Carlo Simulation, we will assume the investor is risk aversion and use the minimum variance portfolio generated above. From confidence interval and average return outputs, the market is having a narrower range and an similar average than the optimized portfolio. Even though the portfolio has a higher upper bound than the market, it is more volatile and therefore we will go for the less risky one and say that the market will be more efficient and perform better in the next 30 days.
 
 Compare to the return calculated from real stock data, the portfolio is generating 3.41% return while the market is generating 5.98% return. This is somewhat off compare to the average return we forecasted. This might result from the shift of the market sentiment. People are investing back in the industries other than technology since the society is gradually getting back to normal and the trend of investing in technology faded away. The assumption we made in the beginning has become true and the portfolio failed to outperform the market. For the future researches, people can include the behavioral finance and event analysis to make the prediction more accurate. 
 
 
+
+
 ### Reference
+
+
+Venkiah, Va¨ına T.L. Portfolio Optimization through Genetic Algorithm and Particle Swarm Optimization. 
+
+
+Barro, Diana, and Elio Canestrelli. Dynamic Portfolio Optimization: Time Decomposition Using the Maximum Principle with a Scenario Approach. 
+
 
 Zucchi, Kristina. Lognormal and Normal Distribution. 13 Dec. 2020, www.investopedia.com/articles/investing/102014/lognormal-and-normal-distribution.asp. 
 
